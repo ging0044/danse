@@ -3,6 +3,8 @@ public/bundle.js*
 # Node
 node_modules/
 
+.idea
+keys
 **/*.swp
 .vscode
 .paket

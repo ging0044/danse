@@ -20,6 +20,16 @@
     "dotenv": "^5.0.1",
     "eris": "^0.8.5",
     "opusscript": "0.0.6",
+    "pg": "^7.4.2",
+    "pg-hstore": "^2.3.2",
+    "sequelize": "^4.37.6",
     "youtube-dl": "^1.12.2"
+  },
+  "devDependencies": {
+    "babel-cli": "^6.26.0",
+    "babel-core": "^6.26.3",
+    "babel-loader": "^7.1.4",
+    "babel-polyfill": "^6.26.0",
+    "babel-preset-env": "^1.6.1"
   }
 }

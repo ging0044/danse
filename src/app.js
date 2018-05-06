@@ -2,21 +2,59 @@ require("dotenv").config();
 
 import Eris from "eris";
 import ydl from "youtube-dl";
+import Sequelize from "sequelize";
+import fs from "fs";
+import path from "path";
+
+const sequelize = new Sequelize(
+  process.env.DB_NAME,
+  process.env.DB_USERNAME,
+  process.env.DB_PASSWORD,
+  {
+    host: process.env.DB_HOST,
+    dialect: process.env.DB_TYPE,
+    dialectOptions: {
+      ssl: {
+        ca: fs.readFileSync(path.join(__dirname, "../keys/ca.key")).toString(),
+        key: fs.readFileSync(path.join(__dirname, "../keys/client.root.key")).toString(),
+        cert: fs.readFileSync(path.join(__dirname, "../keys/client.root.crt")).toString(),
+      },
+    },
+    port: process.env.DB_PORT,
+    operatorsAliases: false,
+  }
+);
+
+const Stop = sequelize.define("stop", {
+  id: {
+    type: Sequelize.STRING,
+    primaryKey: true,
+  },
+  stopped: {
+    type: Sequelize.BOOLEAN,
+  },
+});
 
 const eris = new Eris(process.env.TOKEN);
-const stopped = new Map();
 
 const playRite =
   playYoutube.bind(null, process.env.MUSIC_URL);
 
 eris.on("ready", () => {
-  console.log("Ready");
 
-  eris.on("voiceChannelJoin", (member, channel) => {
+  eris.on("voiceChannelJoin", async (member, channel) => {
     if (inVoiceChannel(eris, channel))
       return;
 
-    if (stopped[channel.id])
+    const stopped = await Stop.find({
+      where: {
+        id: {
+          [Sequelize.Op.eq]: channel.id,
+        }
+      },
+    });
+
+    if (stopped)
       return;
 
     channel
@@ -28,7 +66,6 @@ eris.on("ready", () => {
   eris.on("voiceChannelLeave", (member, channel) => {
     if (!channelEmpty(channel))
       return;
-
 
     channel.leave();
   });
@@ -42,45 +79,90 @@ eris.on("ready", () => {
 
     switch (message.content) {
       case "stop~":
-        stop(message);
+        stop(message)
+          .catch(console.error);
         break;
       case "go~":
-        go(message);
+        go(message)
+          .catch(console.error);
         break;
     }
   });
+
+  console.log("Ready");
 });
 
 eris.connect();
 
 function inVoiceChannel(client, channel) {
-  return client.voiceConnections.map(x => x.id).includes(channel.id);
+  return (
+    client.voiceConnections.map(x => x.id).includes(channel.id) ||
+    channel.voiceMembers.map(x => x.id).includes(client.user.id)
+  );
 }
 
 function isInVoice(member) {
   return !!member.voiceState.channelID;
 }
 
-function stop(message) { // TODO: get rid of this repetitive code
+async function stop(message) { // TODO: get rid of this repetitive code
   if (!isInVoice(message.member))
-    message.channel.createMessage("join a voice chat first, desu");
+    message.channel.createMessage("join a voice chat first, desu")
+      .catch(console.error);
 
-  if (stopped[message.member.voiceState.channelID])
-    message.channel.createMessage("already stopped, desu!");
+  const voiceID = message.member.voiceState.channelID;
 
-  stopped[message.member.voiceState.channelID] = true;
-  eris.voiceConnections.find(x => x.id = message.member.voiceState.channelID).stopPlaying();
-  message.channel.leave();
+  const stopped = await Stop.find({
+    where: {
+      id: {
+        [Sequelize.Op.eq]: voiceID,
+      }
+    }
+  });
+
+  if (stopped) {
+    message.channel.createMessage("already stopped, desu!")
+      .catch(console.error);
+    return;
+  }
+
+  Stop.create({
+    id: voiceID,
+  });
+
+  eris.voiceConnections.find(x => x.id === voiceID).stopPlaying();
+  eris.leaveVoiceChannel(voiceID);
 }
 
-function go(message) {
+async function go(message) {
   if (!isInVoice(message.member))
-    message.channel.createMessage("join a voice chat first, desu");
+    message.channel.createMessage("join a voice chat first, desu")
+      .catch(console.error);
 
-  if (!stopped[message.member.voiceState.channelID])
-    message.channel.createMessage("not stopped, desu!");
+  const voiceID = message.member.voiceState.channelID;
 
-  delete stopped[message.member.voiceState.channelID];
+  const stopped = await Stop.find({
+    where: {
+      id: {
+        [Sequelize.Op.eq]: voiceID,
+      }
+    }
+  });
+
+  if (!stopped) {
+    message.channel.createMessage("not stopped, desu!")
+      .catch(console.error);
+  }
+
+  Stop.update({
+    stopped: false,
+  }, {
+    where: {
+      id: {
+        [Sequelize.Op.eq]: channel.id
+      }
+    },
+  }).catch(console.error);
 }
 
 function channelEmpty(channel) {
@@ -92,10 +174,10 @@ function playMusic(resource, connection) {
   return connection;
 }
 
-function openResource(source) {
+function openYoutube(source) {
   return ydl(source);
 }
 
 function playYoutube(link, connection) {
-  return playMusic(openResource(link), connection);
+  return playMusic(openYoutube(link), connection);
 }
