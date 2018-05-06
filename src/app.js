@@ -11,44 +11,44 @@ const playRite =
 
 eris.on("ready", () => {
   console.log("Ready");
-});
 
-eris.on("voiceChannelJoin", (member, channel) => {
-  if (inVoiceChannel(eris, channel))
-    return;
+  eris.on("voiceChannelJoin", (member, channel) => {
+    if (inVoiceChannel(eris, channel))
+      return;
 
-  if (stopped[channel.id])
-    return;
+    if (stopped[channel.id])
+      return;
 
-  channel
-    .join()
-    .then(playRite)
-    .catch(console.error);
-});
+    channel
+      .join()
+      .then(playRite)
+      .catch(console.error);
+  });
 
-eris.on("voiceChannelLeave", (member, channel) => {
-  if (!channelEmpty(channel))
-    return;
+  eris.on("voiceChannelLeave", (member, channel) => {
+    if (!channelEmpty(channel))
+      return;
 
 
-  channel.leave();
-});
+    channel.leave();
+  });
 
-eris.on("messageCreate", (message) => {
-  if (message.author.id === eris.user.id)
-    return;
+  eris.on("messageCreate", (message) => {
+    if (message.author.id === eris.user.id)
+      return;
 
-  if (message.content.slice(-1) !== "~")
-    return;
+    if (message.content.slice(-1) !== "~")
+      return;
 
-  switch (message.content) {
-    case "stop~":
-      stop(message);
-      break;
-    case "go~":
-      go(message);
-      break;
-  }
+    switch (message.content) {
+      case "stop~":
+        stop(message);
+        break;
+      case "go~":
+        go(message);
+        break;
+    }
+  });
 });
 
 eris.connect();
